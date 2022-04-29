@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
@@ -18,7 +18,6 @@ contract NFTMarket is ReentrancyGuard {
   EnumerableSet.UintSet private curentlyListedIds;
 
   address payable owner; //owner of the smart contract
-
   //people have to pay to puy their NFT on this marketplace
   //uint256 listingPrice = 0.025 ether;
 
@@ -44,13 +43,14 @@ contract NFTMarket is ReentrancyGuard {
   //log message (when Item is sold)
   event MarketItemCreated(uint256 indexed itemId, address indexed nftContract, uint256 indexed tokenId, address seller, address owner, uint256 bidPrice, address highestBidder, uint256 listingEndTime, bool sold);
 
+
   /// @notice function to create market item
   function createMarketItem(
     address nftContract,
     uint256 tokenId,
     uint256 _endTime
   ) public nonReentrant {
-    require(_endTime > block.timestamp, "Bid time is not valid!");
+    require(_endTime > block.timestamp,"Bid time is not valid!");
 
     _itemIds.increment(); //add 1 to the total number of items ever created
     uint256 itemId = _itemIds.current();
@@ -81,11 +81,11 @@ contract NFTMarket is ReentrancyGuard {
     payable(item.seller).transfer(item.bidPrice);
 
     //transfer ownership of the nft from the contract itself to the buyer
-    if (item.highestBidder == address(0)) IERC721(item.nftContract).transferFrom(address(this), item.seller, _tokenId);
+    if(item.highestBidder == address(0)) IERC721(item.nftContract).transferFrom(address(this), item.seller, _tokenId);
     else IERC721(item.nftContract).transferFrom(address(this), item.highestBidder, _tokenId);
 
     curentlyListedIds.remove(_itemId);
-
+    
     item.owner = payable(item.highestBidder); //mark buyer as new owner
     item.seller = payable(address(0));
     item.sold = true; //mark that it has been sold
@@ -95,6 +95,7 @@ contract NFTMarket is ReentrancyGuard {
   }
 
   function makeBid(uint256 _itemId) external payable nonReentrant {
+
     require(idMarketItem[_itemId].seller != address(0), "That item id doesn't exist");
     MarketItem memory item = idMarketItem[_itemId];
     uint256 _bid = msg.value;
@@ -118,18 +119,19 @@ contract NFTMarket is ReentrancyGuard {
     else revert("Time has not expired yet! Please wait.");
   }
 
-  function getListedIds() external view returns (uint256[] memory) {
-    return curentlyListedIds.values();
-  }
+    function getListedIds() external view returns(uint256[] memory ){
+        return curentlyListedIds.values();
+    }
+
 
   /// @notice total number of items unsold on our platform
-  function fetchMarketItems() public view returns (MarketItem[] memory) {
+  function fetchMarketItems() public view returns (MarketItem[] memory items) {
     uint256 itemCount = _itemIds.current(); //total number of items ever created
     //total number of items that are unsold = total items ever created - total items ever sold
     uint256 unsoldItemCount = _itemIds.current() - _itemsSold.current();
     uint256 currentIndex = 0;
-
-    MarketItem[] memory items = new MarketItem[](unsoldItemCount);
+    if(unsoldItemCount == 0) return items;
+    items = new MarketItem[](unsoldItemCount);
 
     //loop through all items ever created
     for (uint256 i = 0; i < itemCount; i++) {
