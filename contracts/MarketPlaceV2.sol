@@ -81,12 +81,17 @@ contract NFTMarket is ReentrancyGuard {
     payable(item.seller).transfer(item.bidPrice);
 
     //transfer ownership of the nft from the contract itself to the buyer
-    if(item.highestBidder == address(0)) IERC721(item.nftContract).transferFrom(address(this), item.seller, _tokenId);
-    else IERC721(item.nftContract).transferFrom(address(this), item.highestBidder, _tokenId);
+    if(item.highestBidder == address(0)){
+      IERC721(item.nftContract).transferFrom(address(this), item.seller, _tokenId);
+      item.owner = payable(item.seller);
+    } 
+    else{
+      IERC721(item.nftContract).transferFrom(address(this), item.highestBidder, _tokenId);
+      item.owner = payable(item.highestBidder); //mark buyer as new owner
+    } 
 
     curentlyListedIds.remove(_itemId);
     
-    item.owner = payable(item.highestBidder); //mark buyer as new owner
     item.seller = payable(address(0));
     item.sold = true; //mark that it has been sold
     _itemsSold.increment(); //increment the total number of Items sold by 1
